@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 )
@@ -11,41 +11,41 @@ import (
 type closeFunc func() error
 
 func initializeLogger() (*slog.Logger, closeFunc, error) {
-	// generid empty function
-	closeF := func() error {
-		return nil
-	}
 
-	// std logging only
-	filePath, ok := os.LookupEnv("LINKO_LOG_FILE")
+	// stderr - debug
+
+	debugHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
+
+	// file - info
+
+	logFilePath, ok := os.LookupEnv("LINKO_LOG_FILE")
 	if !ok {
-		logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-		return logger, closeF, nil
+		logger := slog.New(debugHandler)
+		closeF := func() error { return nil }
+		return logger, closeF, errors.New("missing 'LINKO_LOG_FILE' environment variable")
 	}
 
-	// file + std logging (production)
-	accessFileW, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	accessFileBW := bufio.NewWriterSize(accessFileW, 8192)
+	logFileW, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		return nil, closeF, fmt.Errorf("failed to open %q for writing: %w", filePath, err)
+		logger := slog.New(debugHandler)
+		closeF := func() error { return nil }
+		return logger, closeF, err
 	}
-	mw := io.MultiWriter(accessFileBW, os.Stderr)
-	logger := slog.New(slog.NewTextHandler(mw, nil))
-	// overried the function
-	closeF = func() error {
-		err = accessFileBW.Flush()
-		if err != nil {
-			return fmt.Errorf("error when flushing the buffere writter to %q file: %w", filePath, err)
-		}
+	logFileBW := bufio.NewWriterSize(logFileW, 8192)
 
-		err := accessFileW.Close()
-		if err != nil {
-			return fmt.Errorf("error when closing the %q file: %w", filePath, err)
+	infoHandler := slog.NewTextHandler(logFileBW, &slog.HandlerOptions{Level: slog.LevelInfo})	
+	logger := slog.New(slog.NewMultiHandler(debugHandler, infoHandler))
+	closeF := func() error { 
+		errFlush := logFileBW.Flush()
+		if errFlush != nil {
+			errFlush = fmt.Errorf("failed to flush the log file buffer: %w", errFlush)
 		}
-
-		return nil
+		errClose := logFileW.Close()
+		if errClose != nil {
+			errClose = fmt.Errorf("failed to close the log file: %w", errClose)
+		}
+		return errors.Join(errFlush, errClose)
 	}
-
 	return logger, closeF, nil
-
+	
 }
