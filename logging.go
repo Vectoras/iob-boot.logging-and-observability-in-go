@@ -33,7 +33,7 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 	}
 	logFileBW := bufio.NewWriterSize(logFileW, 8192)
 
-	infoHandler := slog.NewTextHandler(logFileBW, &slog.HandlerOptions{Level: slog.LevelInfo})	
+	infoHandler := slog.NewJSONHandler(logFileBW, &slog.HandlerOptions{Level: slog.LevelInfo})	
 	logger := slog.New(slog.NewMultiHandler(debugHandler, infoHandler))
 	closeF := func() error { 
 		errFlush := logFileBW.Flush()
