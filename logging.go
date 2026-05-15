@@ -6,9 +6,15 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+
+	pkgerr "github.com/pkg/errors"
 )
 
 type closeFunc func() error
+type stackTracer interface {
+	error
+	StackTrace() pkgerr.StackTrace
+}
 
 func initializeLogger() (*slog.Logger, closeFunc, error) {
 
@@ -19,6 +25,18 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 			err, ok := a.Value.Any().(error)
 			if !ok {
 				return a
+			}
+			if stackErr, ok := errors.AsType[stackTracer](err); ok {
+				return slog.GroupAttrs(a.Key,
+					slog.Attr{
+						Key:   "message",
+						Value: slog.StringValue(stackErr.Error()),
+					},
+					slog.Attr{
+						Key:   "stack_trace",
+						Value: slog.StringValue(fmt.Sprintf("%+v", stackErr.StackTrace())),
+					},
+				)
 			}
 			return slog.String(a.Key, fmt.Sprintf("%+v", err))
 		}
