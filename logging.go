@@ -12,9 +12,25 @@ type closeFunc func() error
 
 func initializeLogger() (*slog.Logger, closeFunc, error) {
 
+	// log errors with their stack helper function
+
+	addStackToErrors := func(groups []string, a slog.Attr) slog.Attr {
+		if a.Key == "error" {
+			err, ok := a.Value.Any().(error)
+			if !ok {
+				return a
+			}
+			return slog.String(a.Key, fmt.Sprintf("%+v", err))
+		}
+		return a
+	}
+
 	// stderr - debug
 
-	debugHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})
+	debugHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level:       slog.LevelDebug,
+		ReplaceAttr: addStackToErrors,
+	})
 
 	// file - info
 
@@ -33,9 +49,12 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 	}
 	logFileBW := bufio.NewWriterSize(logFileW, 8192)
 
-	infoHandler := slog.NewJSONHandler(logFileBW, &slog.HandlerOptions{Level: slog.LevelInfo})	
+	infoHandler := slog.NewJSONHandler(logFileBW, &slog.HandlerOptions{
+		Level:       slog.LevelInfo,
+		ReplaceAttr: addStackToErrors,
+	})
 	logger := slog.New(slog.NewMultiHandler(debugHandler, infoHandler))
-	closeF := func() error { 
+	closeF := func() error {
 		errFlush := logFileBW.Flush()
 		if errFlush != nil {
 			errFlush = fmt.Errorf("failed to flush the log file buffer: %w", errFlush)
@@ -47,5 +66,5 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 		return errors.Join(errFlush, errClose)
 	}
 	return logger, closeF, nil
-	
+
 }
