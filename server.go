@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"boot.dev/linko/internal/store"
 )
@@ -19,15 +22,97 @@ type server struct {
 	logger     *slog.Logger
 }
 
+type spyReadCloser struct {
+	io.ReadCloser
+	bytesRead int
+}
+
+func (r *spyReadCloser) Read(p []byte) (n int, err error) {
+	n, err = r.ReadCloser.Read(p)
+	r.bytesRead += n
+	return n, err
+}
+
+type spyResponseWriter struct {
+	http.ResponseWriter
+	bytesWritten int
+	statusCode   int
+}
+
+func (w *spyResponseWriter) Write(b []byte) (int, error) {
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
+	}
+	n, err := w.ResponseWriter.Write(b)
+	w.bytesWritten += n
+	return n, err
+}
+
+func (w *spyResponseWriter) WriteHeader(statusCode int) {
+	w.statusCode = statusCode
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+const logContextKey contextKey = "log_context"
+
+type LogContext struct {
+	Username string
+	Error    error
+}
+
+func httpError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	if logCtx, ok := ctx.Value(logContextKey).(*LogContext); ok {
+		logCtx.Error = err
+	}
+	http.Error(w, err.Error(), status)
+}
+
+func ensureRequestId(next http.Handler) http.Handler {
+	return (http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestId := r.Header.Get("X-Request-ID")
+		if requestId == "" {
+			requestId = rand.Text()
+		}
+		w.Header().Set("X-Request-ID", requestId)
+
+		next.ServeHTTP(w, r)
+	}))
+}
+
 func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			next.ServeHTTP(w, r)
-			logger.Info("Served request",
+			start := time.Now()
+
+			r = r.WithContext(context.WithValue(r.Context(), logContextKey, &LogContext{}))
+
+			spyReader := &spyReadCloser{ReadCloser: r.Body}
+			r.Body = spyReader
+			spyResponseWriter := &spyResponseWriter{ResponseWriter: w}
+
+			next.ServeHTTP(spyResponseWriter, r)
+
+			logAttrs := []any{
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.EscapedPath()),
 				slog.String("client_ip", r.RemoteAddr),
-			)
+				slog.Duration("duration", time.Since(start)),
+				slog.Int("request_body_bytes", spyReader.bytesRead),
+				slog.Int("response_status", spyResponseWriter.statusCode),
+				slog.Int("response_body_bytes", spyResponseWriter.bytesWritten),
+				slog.String("request_id", spyResponseWriter.Header().Get("X-Request-ID")),
+			}
+
+			if logContext, ok := r.Context().Value(logContextKey).(*LogContext); ok {
+				if logContext.Username != "" {
+					logAttrs = append(logAttrs, slog.String("user", logContext.Username))
+				}
+				if logContext.Error != nil {
+					logAttrs = append(logAttrs, slog.Any("error", logContext.Error))
+				}
+			}
+
+			logger.Info("Served request", logAttrs...)
 		})
 	}
 }
@@ -37,7 +122,7 @@ func newServer(store store.Store, port int, logger *slog.Logger, cancel context.
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: requestLogger(logger)(mux),
+		Handler: ensureRequestId(requestLogger(logger)(mux)),
 	}
 
 	s := &server{
