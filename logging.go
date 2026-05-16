@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -9,7 +8,10 @@ import (
 
 	"boot.dev/linko/internal/build"
 	"boot.dev/linko/internal/linkoerr"
+	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
 	pkgerr "github.com/pkg/errors"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type closeFunc func() error
@@ -65,55 +67,68 @@ func initializeLogger() (*slog.Logger, closeFunc, error) {
 		return a
 	}
 
+	// handlers and closers
+
+	var (
+		handlers []slog.Handler
+		closers  []closeFunc
+	)
+
 	// stderr - debug
 
-	debugHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+	tintOptions := tint.Options{
 		Level:       slog.LevelDebug,
 		ReplaceAttr: addStackToErrors,
-	})
+		NoColor:     true,
+	}
+	if isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd()) {
+		tintOptions.NoColor = false
+	}
+	handlers = append(handlers, tint.NewHandler(os.Stderr, &tintOptions))
 
 	// file - info
 
 	logFilePath, ok := os.LookupEnv("LINKO_LOG_FILE")
 	if !ok {
-		logger := slog.New(debugHandler)
 		closeF := func() error { return nil }
-		return logger, closeF, errors.New("missing 'LINKO_LOG_FILE' environment variable")
+		return nil, closeF, errors.New("missing 'LINKO_LOG_FILE' environment variable")
 	}
 
-	logFileW, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
-	if err != nil {
-		logger := slog.New(debugHandler)
-		closeF := func() error { return nil }
-		return logger, closeF, err
+	logFile := &lumberjack.Logger{
+		Filename:   logFilePath,
+		MaxSize:    1,
+		MaxAge:     28,
+		MaxBackups: 10,
+		LocalTime:  false,
+		Compress:   true,
 	}
-	logFileBW := bufio.NewWriterSize(logFileW, 8192)
 
-	infoHandler := slog.NewJSONHandler(logFileBW, &slog.HandlerOptions{
+	handlers = append(handlers, slog.NewJSONHandler(logFile, &slog.HandlerOptions{
 		Level:       slog.LevelInfo,
 		ReplaceAttr: addStackToErrors,
-	})
-	logger := slog.New(slog.NewMultiHandler(debugHandler, infoHandler))
-	closeF := func() error {
-		errFlush := logFileBW.Flush()
-		if errFlush != nil {
-			errFlush = fmt.Errorf("failed to flush the log file buffer: %w", errFlush)
+	}))
+	closers = append(closers, logFile.Close)
+
+	// close function and the logger
+
+	close := func() error {
+		var errs []error
+		for _, closer := range closers {
+			errs = append(errs, closer())
 		}
-		errClose := logFileW.Close()
-		if errClose != nil {
-			errClose = fmt.Errorf("failed to close the log file: %w", errClose)
-		}
-		return errors.Join(errFlush, errClose)
+		return errors.Join(errs...)
 	}
 
 	hostname, _ := os.Hostname()
-	logger = logger.With(
+	logger := slog.New(slog.NewMultiHandler(handlers...)).With(
 		slog.String("git_sha", build.GitSHA),
 		slog.String("build_time", build.BuildTime),
 		slog.String("env", os.Getenv("ENV")),
 		slog.String("hostname", hostname),
 	)
-	
-	return logger, closeF, nil
+
+	// ---
+
+	return logger, close, nil
 
 }
