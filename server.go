@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"boot.dev/linko/internal/store"
@@ -64,7 +65,11 @@ func httpError(ctx context.Context, w http.ResponseWriter, status int, err error
 	if logCtx, ok := ctx.Value(logContextKey).(*LogContext); ok {
 		logCtx.Error = err
 	}
-	http.Error(w, err.Error(), status)
+	if status == 401 || status == 403 || status == 500 {
+		http.Error(w, http.StatusText(status), status)
+	} else {
+		http.Error(w, err.Error(), status)
+	}
 }
 
 func ensureRequestId(next http.Handler) http.Handler {
@@ -77,6 +82,29 @@ func ensureRequestId(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	}))
+}
+
+func redactIP(address string) string {
+
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return address
+	}
+
+	parsedHost := net.ParseIP(host)
+	if parsedHost == nil || parsedHost.To4() == nil {
+		return address
+	}
+
+	parts := strings.Split(host, ".")
+	parts[3] = "x"
+	redacted := strings.Join(parts, ".")
+
+	// if port != "" {
+	// 	redacted = net.JoinHostPort(redacted, port)
+	// }
+
+	return redacted
 }
 
 func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
@@ -95,7 +123,7 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 			logAttrs := []any{
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.EscapedPath()),
-				slog.String("client_ip", r.RemoteAddr),
+				slog.String("client_ip", redactIP(r.RemoteAddr)),
 				slog.Duration("duration", time.Since(start)),
 				slog.Int("request_body_bytes", spyReader.bytesRead),
 				slog.Int("response_status", spyResponseWriter.statusCode),
