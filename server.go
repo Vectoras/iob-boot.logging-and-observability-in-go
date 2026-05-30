@@ -161,14 +161,16 @@ func newServer(store store.Store, port int, logger *slog.Logger, cancel context.
 		logger:     logger,
 	}
 
-	mux.HandleFunc("GET /", s.handlerIndex)
-	mux.Handle("POST /api/login", s.authMiddleware(http.HandlerFunc(s.handlerLogin)))
-	mux.Handle("POST /api/shorten", s.authMiddleware(http.HandlerFunc(s.handlerShortenLink)))
-	mux.Handle("GET /api/stats", s.authMiddleware(http.HandlerFunc(s.handlerStats)))
-	mux.Handle("GET /api/urls", s.authMiddleware(http.HandlerFunc(s.handlerListURLs)))
-	mux.HandleFunc("GET /{shortCode}", s.handlerRedirect)
-	mux.HandleFunc("POST /admin/shutdown", s.handlerShutdown)
+	apiMux := http.NewServeMux()
+	apiMux.HandleFunc("GET /", s.handlerIndex)
+	apiMux.Handle("POST /api/login", s.authMiddleware(http.HandlerFunc(s.handlerLogin)))
+	apiMux.Handle("POST /api/shorten", s.authMiddleware(http.HandlerFunc(s.handlerShortenLink)))
+	apiMux.Handle("GET /api/stats", s.authMiddleware(http.HandlerFunc(s.handlerStats)))
+	apiMux.Handle("GET /api/urls", s.authMiddleware(http.HandlerFunc(s.handlerListURLs)))
+	apiMux.HandleFunc("GET /{shortCode}", s.handlerRedirect)
+	apiMux.HandleFunc("POST /admin/shutdown", s.handlerShutdown)
 
+	mux.Handle("/", metricsMiddleware(apiMux))
 	mux.Handle("GET /metrics", promhttp.Handler())
 
 	return s
