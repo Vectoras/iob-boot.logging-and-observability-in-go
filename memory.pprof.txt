@@ -1,0 +1,37 @@
+File: linko
+Build ID: 7ebc36fe3461f3b4a5d74580d2e47b38f678344c
+Type: inuse_space
+Time: 2026-05-30 13:12:12 BST
+Duration: 30.01s, Total samples = 7940.21kB 
+Showing nodes accounting for 2524.69kB, 31.80% of 7940.21kB total
+      flat  flat%   sum%        cum   cum%
+ 4704.29kB 59.25% 59.25%  4704.29kB 59.25%  internal/bytealg.MakeNoZero
+-2707.76kB 34.10% 25.14% -2707.76kB 34.10%  compress/flate.NewWriter (inline)
+  528.17kB  6.65% 31.80%   528.17kB  6.65%  regexp.(*bitState).reset
+         0     0% 31.80% -2707.76kB 34.10%  bufio.(*Writer).Flush
+         0     0% 31.80% -2707.76kB 34.10%  compress/gzip.(*Writer).Write
+         0     0% 31.80%   528.17kB  6.65%  github.com/prometheus/client_golang/prometheus.(*Registry).Gather.func1
+         0     0% 31.80%   528.17kB  6.65%  github.com/prometheus/client_golang/prometheus.(*processCollector).Collect
+         0     0% 31.80%   528.17kB  6.65%  github.com/prometheus/client_golang/prometheus.(*processCollector).processCollect
+         0     0% 31.80% -2707.76kB 34.10%  github.com/prometheus/client_golang/prometheus/promhttp.HandlerForTransactional.func1
+         0     0% 31.80% -2707.76kB 34.10%  github.com/prometheus/client_golang/prometheus/promhttp.InstrumentHandlerCounter.func1
+         0     0% 31.80% -2707.76kB 34.10%  github.com/prometheus/client_golang/prometheus/promhttp.InstrumentMetricHandler.InstrumentHandlerInFlight.func1
+         0     0% 31.80% -2707.76kB 34.10%  github.com/prometheus/common/expfmt.MetricFamilyToText
+         0     0% 31.80% -2707.76kB 34.10%  github.com/prometheus/common/expfmt.MetricFamilyToText.func1
+         0     0% 31.80% -2707.76kB 34.10%  github.com/prometheus/common/expfmt.NewEncoder.func7
+         0     0% 31.80% -2707.76kB 34.10%  github.com/prometheus/common/expfmt.encoderCloser.Encode
+         0     0% 31.80%   528.17kB  6.65%  github.com/prometheus/procfs.Proc.Limits
+         0     0% 31.80%  4704.29kB 59.25%  main.(*server).handlerRedirect
+         0     0% 31.80%  1996.53kB 25.14%  main.newServer.ensureRequestId.func3
+         0     0% 31.80%  4704.29kB 59.25%  main.newServer.metricsMiddleware.func8
+         0     0% 31.80%  1996.53kB 25.14%  main.newServer.newServer.requestLogger.func1.func2
+         0     0% 31.80%  1996.53kB 25.14%  net/http.(*ServeMux).ServeHTTP
+         0     0% 31.80%  1996.53kB 25.14%  net/http.(*conn).serve
+         0     0% 31.80%  1996.53kB 25.14%  net/http.HandlerFunc.ServeHTTP
+         0     0% 31.80%  1996.53kB 25.14%  net/http.serverHandler.ServeHTTP
+         0     0% 31.80%   528.17kB  6.65%  regexp.(*Regexp).FindStringSubmatch
+         0     0% 31.80%   528.17kB  6.65%  regexp.(*Regexp).backtrack
+         0     0% 31.80%   528.17kB  6.65%  regexp.(*Regexp).doExecute
+         0     0% 31.80%  4704.29kB 59.25%  strings.(*Builder).Grow
+         0     0% 31.80%  4704.29kB 59.25%  strings.(*Builder).grow
+         0     0% 31.80%  4704.29kB 59.25%  strings.Repeat

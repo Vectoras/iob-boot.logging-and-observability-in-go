@@ -1,0 +1,27 @@
+File: linko
+Build ID: 7ebc36fe3461f3b4a5d74580d2e47b38f678344c
+Type: cpu
+Time: 2026-05-30 13:02:05 BST
+Duration: 30s, Total samples = 11.40s (38.00%)
+Showing nodes accounting for 11.28s, 98.95% of 11.40s total
+Dropped 154 nodes (cum <= 0.06s)
+      flat  flat%   sum%        cum   cum%
+    11.02s 96.67% 96.67%     11.02s 96.67%  golang.org/x/crypto/blowfish.encryptBlock
+     0.17s  1.49% 98.16%     11.19s 98.16%  golang.org/x/crypto/blowfish.ExpandKey
+     0.09s  0.79% 98.95%      0.09s  0.79%  internal/runtime/syscall/linux.Syscall6
+         0     0% 98.95%      0.06s  0.53%  github.com/prometheus/client_golang/prometheus.(*Registry).Gather.func1
+         0     0% 98.95%      0.06s  0.53%  github.com/prometheus/client_golang/prometheus.(*processCollector).Collect
+         0     0% 98.95%      0.06s  0.53%  github.com/prometheus/client_golang/prometheus.(*processCollector).processCollect
+         0     0% 98.95%     11.19s 98.16%  golang.org/x/crypto/bcrypt.GenerateFromPassword
+         0     0% 98.95%     11.19s 98.16%  golang.org/x/crypto/bcrypt.bcrypt
+         0     0% 98.95%     11.19s 98.16%  golang.org/x/crypto/bcrypt.expensiveBlowfishSetup
+         0     0% 98.95%     11.19s 98.16%  golang.org/x/crypto/bcrypt.newFromPassword
+         0     0% 98.95%     11.22s 98.42%  main.(*server).handlerRedirect
+         0     0% 98.95%     11.26s 98.77%  main.newServer.ensureRequestId.func3
+         0     0% 98.95%     11.22s 98.42%  main.newServer.metricsMiddleware.func8
+         0     0% 98.95%     11.26s 98.77%  main.newServer.newServer.requestLogger.func1.func2
+         0     0% 98.95%     11.24s 98.60%  net/http.(*ServeMux).ServeHTTP
+         0     0% 98.95%     11.26s 98.77%  net/http.(*conn).serve
+         0     0% 98.95%     11.26s 98.77%  net/http.HandlerFunc.ServeHTTP
+         0     0% 98.95%     11.26s 98.77%  net/http.serverHandler.ServeHTTP
+         0     0% 98.95%      0.07s  0.61%  syscall.RawSyscall6
