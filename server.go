@@ -16,6 +16,7 @@ import (
 
 	"boot.dev/linko/internal/store"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type server struct {
@@ -171,7 +172,7 @@ func newServer(store store.Store, port int, logger *slog.Logger, cancel context.
 	apiMux.HandleFunc("GET /{shortCode}", s.handlerRedirect)
 	apiMux.HandleFunc("POST /admin/shutdown", s.handlerShutdown)
 
-	mux.Handle("/", metricsMiddleware(apiMux))
+	mux.Handle("/", otelhttp.NewHandler(metricsMiddleware(apiMux), "http.server"))
 	mux.Handle("GET /metrics", promhttp.Handler())
 	mux.Handle("GET /debug/pprof/", s.authMiddleware(http.HandlerFunc(pprof.Index)))
 	mux.Handle("GET /debug/pprof/profile", s.authMiddleware(http.HandlerFunc(pprof.Profile)))
